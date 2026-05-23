@@ -1,3 +1,4 @@
+/* eslint-disable formatjs/no-literal-string-in-jsx */
 import { Box, Button, Rows, Text } from "@canva/app-ui-kit";
 import { addElementAtPoint } from "@canva/design";
 import { useFeatureSupport, useSelection } from "@canva/app-hooks";
@@ -29,7 +30,8 @@ export const App = () => {
       img.src = url;
 
       img.onload = async () => {
-        const MAX_SIZE = 400;
+        // Batasi ukuran maksimal canvas agar kerapatan awal proporsional
+        const MAX_SIZE = 250;
         let targetWidth = img.width;
         let targetHeight = img.height;
 
@@ -68,40 +70,78 @@ export const App = () => {
             const mainRing = mainPolygon[0];
 
             if (mainRing && mainRing.length >= 3) {
-              let ringPath = "";
+              const basePoints: [number, number][] = [];
               let lastX = -1;
               let lastY = -1;
 
+              // Tahap 1: Gunakan kompresi jarak lebih longgar (5.0) 
+              // Ini krusial memberikan ruang byte untuk karakter koma desimal
               mainRing.forEach((point, index) => {
                 const px = point?.[0];
                 const py = point?.[1];
                 if (typeof px !== "number" || typeof py !== "number") return;
 
+                // Membaca kordinat dengan akurasi 1 angka di belakang koma desimal
                 const x = Math.round(px * 10) / 10;
                 const y = Math.round(py * 10) / 10;
 
                 if (index > 0 && index < mainRing.length - 1) {
                   const distance = Math.sqrt(Math.pow(x - lastX, 2) + Math.pow(y - lastY, 2));
-                  if (distance < 1.5) return;
+                  if (distance < 5.0) return;
                 }
 
-                if (ringPath === "") {
-                  ringPath += `M ${x},${y} `;
-                } else {
-                  ringPath += `L ${x},${y} `;
-                }
-
+                basePoints.push([x, y]);
                 lastX = x;
                 lastY = y;
               });
 
-              if (ringPath !== "") {
-                pathString = ringPath.trim() + " Z";
+              // Tahap 2: Algoritma Subdivision untuk Menghaluskan Pola Garis
+              if (basePoints.length >= 3) {
+                const smoothPoints: [number, number][] = [];
+
+                for (let i = 0; i < basePoints.length; i++) {
+                  const current = basePoints[i];
+                  const next = basePoints[(i + 1) % basePoints.length];
+
+                  if (current && next) {
+                    // Pecah sudut tajam menjadi 2 segmen baru dengan kalkulasi 1 desimal (koma)
+                    const p1X = Math.round((0.75 * current[0] + 0.25 * next[0]) * 10) / 10;
+                    const p1Y = Math.round((0.75 * current[1] + 0.25 * next[1]) * 10) / 10;
+
+                    const p2X = Math.round((0.25 * current[0] + 0.75 * next[0]) * 10) / 10;
+                    const p2Y = Math.round((0.25 * current[1] + 0.75 * next[1]) * 10) / 10;
+
+                    smoothPoints.push([p1X, p1Y]);
+                    smoothPoints.push([p2X, p2Y]);
+                  }
+                }
+
+                // Tahap 3: Merangkai teks SVG koordinat menggunakan koma desimal
+                if (smoothPoints.length > 0 && smoothPoints[0]) {
+                  let ringPath = `M ${smoothPoints[0][0]},${smoothPoints[0][1]} `;
+
+                  for (let i = 1; i < smoothPoints.length; i++) {
+                    const pt = smoothPoints[i];
+                    if (pt) {
+                      ringPath += `L ${pt[0]},${pt[1]} `;
+                    }
+                  }
+
+                  pathString = ringPath.trim() + " Z";
+                }
               }
             }
           }
 
           if (pathString) {
+            // Log monitor kapasitas string byte untuk memastikan kepatuhan 16KB Canva
+            const byteSize = new Blob([pathString]).size;
+            console.debug(`Ukuran Path Desimal Halus: ${byteSize} bytes (Limit Canva: 16384).`);
+
+            const visualWidth = 200;
+            const visualHeight = (targetHeight / targetWidth) * visualWidth;
+
+            // Memasukkan bangun datar ke kanvas Canva
             await addElementAtPoint({
               type: "shape",
               paths: [
@@ -121,8 +161,8 @@ export const App = () => {
               },
               top: 0,
               left: 0,
-              width: 200,
-              height: (targetHeight / targetWidth) * 200,
+              width: visualWidth,
+              height: visualHeight,
             });
           } else {
             console.warn("Gagal membuat path luar yang valid.");
