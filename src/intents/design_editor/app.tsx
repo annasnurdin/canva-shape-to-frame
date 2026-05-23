@@ -1,84 +1,53 @@
-import { useFeatureSupport } from "@canva/app-hooks";
 import { Button, Rows, Text } from "@canva/app-ui-kit";
-import { addElementAtCursor, addElementAtPoint } from "@canva/design";
-import { requestOpenExternalUrl } from "@canva/platform";
-import { FormattedMessage, useIntl } from "react-intl";
-import * as styles from "styles/components.css";
-
-export const DOCS_URL = "https://www.canva.dev/docs/apps/";
+import { addElementAtPoint } from "@canva/design";
+import { useFeatureSupport, useSelection } from "@canva/app-hooks";
+import { useEffect } from "react";
 
 export const App = () => {
   const isSupported = useFeatureSupport();
-  const addElement = [addElementAtPoint, addElementAtCursor].find((fn) =>
-    isSupported(fn),
-  );
+  const canAddElement = isSupported(addElementAtPoint);
 
-  const onClick = () => {
-    if (!addElement) {
-      return;
-    }
+  const handleAddHeart = async () => {
+    if (!canAddElement) return;
 
-    addElement({
-      type: "text",
-      children: ["Hello world!"],
+    await addElementAtPoint({
+      type: "shape",
+      paths: [
+        {
+          d: "M 50,92.5 C 50,92.5 15,62.5 15,32.5 C 15,17.5 27.5,5 42.5,5 C 50,5 50,15 50,15 C 50,15 50,5 57.5,5 C 72.5,5 85,17.5 85,32.5 C 85,62.5 50,92.5 50,92.5 Z",
+          fill: {
+            color: "#ff4d4d", 
+            dropTarget: true, 
+          },
+        },
+      ],
+      viewBox: {
+        width: 100,
+        height: 100,
+        left: 0,
+        top: 0,
+      },
+      top: 0,
+      left: 0,
+      width: 200,
+      height: 200,
     });
   };
 
-  const openExternalUrl = async (url: string) => {
-    const response = await requestOpenExternalUrl({
-      url,
-    });
-
-    if (response.status === "aborted") {
-      // user decided not to navigate to the link
-    }
-  };
-
-  const intl = useIntl();
 
   return (
-    <div className={styles.scrollContainer}>
+    <div style={{ padding: "16px" }}>
       <Rows spacing="2u">
         <Text>
-          <FormattedMessage
-            defaultMessage="
-              To make changes to this app, edit the <code>src/app.tsx</code> file,
-              then close and reopen the app in the editor to preview the changes.
-            "
-            description="Instructions for how to make changes to the app. Do not translate <code>src/app.tsx</code>."
-            values={{
-              code: (chunks) => <code>{chunks}</code>,
-            }}
-          />
+          ADD HEART SHAPE
         </Text>
         <Button
           variant="primary"
-          onClick={onClick}
-          disabled={!addElement}
-          tooltipLabel={
-            !addElement
-              ? intl.formatMessage({
-                  defaultMessage:
-                    "This feature is not supported in the current page",
-                  description:
-                    "Tooltip label for when a feature is not supported in the current design",
-                })
-              : undefined
-          }
+          onClick={handleAddHeart}
+          disabled={!canAddElement}
           stretch
         >
-          {intl.formatMessage({
-            defaultMessage: "Do something cool",
-            description:
-              "Button text to do something cool. Creates a new text element when pressed.",
-          })}
-        </Button>
-        <Button variant="secondary" onClick={() => openExternalUrl(DOCS_URL)}>
-          {intl.formatMessage({
-            defaultMessage: "Open Canva Apps SDK docs",
-            description:
-              "Button text to open Canva Apps SDK docs. Opens an external URL when pressed.",
-          })}
+          Click Me
         </Button>
       </Rows>
     </div>
